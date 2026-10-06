@@ -1,0 +1,9 @@
+{
+  "name": "estimations",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,11 @@
+# Minimal deployment. Nothing to mount: the server keeps no state.
+# Put it behind any reverse proxy that passes WebSocket upgrades (nginx, Caddy, Traefik, Cloudflare Tunnel).
+services:
+  estimations:
+    build: .
+    image: estimations:latest
+    container_name: estimations
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    mem_limit: 128m
