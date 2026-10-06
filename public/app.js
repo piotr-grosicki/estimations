@@ -587,7 +587,7 @@ function startRoom(roomId) {
     canvas.width = innerWidth * dpr;
     canvas.height = innerHeight * dpr;
     ctx.scale(dpr, dpr);
-    const colors = ['#f97316', '#fb923c', '#facc15', '#22c55e', '#38bdf8', '#a78bfa', '#f472b6'];
+    const colors = ['#002664', '#739abc', '#69be28', '#fecb00', '#ff6e00', '#5e6a71', '#d1d4d3'];
     const parts = Array.from({ length: 180 }, () => ({
       x: innerWidth / 2 + (Math.random() - 0.5) * 120,
       y: innerHeight * 0.35,
