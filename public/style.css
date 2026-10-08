@@ -181,7 +181,26 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .hcard.c3 { transform: translateX(70px) rotate(14deg); animation-delay: -3s; }
 @keyframes float { 50% { margin-top: -6px; } }
 
+.create { display: flex; gap: 10px; justify-content: center; max-width: 520px; margin: 0 auto; }
+.create input { flex: 1; min-width: 0; min-height: 56px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 0 22px; font-size: 17px; box-shadow: var(--shadow); }
+.create input:focus { outline: 3px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+.saved { max-width: 520px; margin: 36px auto 0; text-align: left; }
+.saved .eyebrow { margin-bottom: 10px; padding-left: 4px; }
+.saved ul { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.saved-room { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 0; }
+.saved-room + .saved-room { border-top: 1px solid var(--line); }
+.saved-room a { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 8px 0 8px 16px; color: var(--ink); text-decoration: none; }
+.saved-room a:hover b { color: var(--accent); }
+.saved-room a:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; border-radius: 8px; }
+.saved-room b, .saved-room code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-room code { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); }
+.placeholder { color: var(--muted); font-style: italic; }
+.saved-room .when { font-size: 13px; color: var(--muted); white-space: nowrap; }
+
 /* room */
+.room-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.room-title h1 { margin: 0; font-size: 26px; letter-spacing: -.025em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room { flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 20px; }
 .conn-banner { align-self: center; padding: 6px 14px; border-radius: 999px; background: var(--warn-soft); color: var(--warn-ink); font-size: 14px; font-weight: 600; }
 .eyebrow { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--muted); }
@@ -270,7 +289,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .muted { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
 .dialog input { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); padding: 0 14px; font-size: 17px; }
 .dialog input:focus { outline: 3px solid var(--accent); outline-offset: 1px; border-color: transparent; }
-.dialog-actions { display: flex; justify-content: flex-end; margin-top: 18px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
@@ -292,6 +311,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   .pick { width: 52px; height: 74px; font-size: 19px; }
   .pick.long { font-size: 15px; }
   #copy-link span { display: none; }
+  .create { flex-direction: column; }
+  .room-title h1 { font-size: 22px; }
+  .saved-room .when { display: none; }
   #copy-link { width: 36px; padding: 0; }
 }
 

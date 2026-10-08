@@ -8,6 +8,10 @@ moderator reveals them all at once. No accounts, no database, nothing stored on 
 ## Features
 
 - **Quick rooms.** One click creates `/rooms/<uuid>`; share the link and you are in.
+- **Room names.** Optional: type one when you create the room, or the moderator names it later. Everyone who joins
+  gets it with the rest of the room.
+- **Saved rooms.** The start page lists the rooms this browser has been in, with their names and ids, to jump back
+  in; the cross forgets one.
 - **Rooms never expire.** There is nothing on the server to expire. Open the same link next week and carry on.
 - **Hidden votes.** Before the reveal, a browser tells the others only *that* you voted, never the value. It is not
   hidden by CSS: the value does not leave your browser until the moderator reveals.
@@ -15,7 +19,8 @@ moderator reveals them all at once. No accounts, no database, nothing stored on 
   Anyone can take the role over (for when the moderator walked away with the tab open), and if the moderator leaves
   for 30 seconds it passes on its own to whoever has been in the room the longest.
 - **Two decks.** Fibonacci (`1 2 3 5 8 13 21 ? ☕`, the default) and T-shirt sizes (`XS S M L XL XXL ? ☕`).
-- **Results.** Average (Fibonacci), the most picked card and a breakdown; confetti when everyone agrees.
+- **Results.** Average (Fibonacci, snapped to the closest real card, ties going up: 5 and 13 average to 8, not 9),
+  the most picked card and a breakdown; confetti when everyone agrees.
 - **Survives drops.** Reload the page or lose the connection and the people still in the room send you the current
   game. Your name and your vote for the current round are kept in your browser.
 - **Light and dark.** Follows the system by default; the toggle (system / light / dark) is remembered.
@@ -35,7 +40,7 @@ their game.
 
 The game state lives in the browsers (`public/app.js`):
 
-- **The room** (round, revealed or not, deck, moderator) is shared. Whoever changes it bumps a version number and
+- **The room** (round, revealed or not, deck, moderator, name) is shared. Whoever changes it bumps a version number and
   broadcasts it. Everyone keeps the highest version, ties going to the earlier change, so all browsers converge on
   the same room even when two changes cross.
 - **Each person's record** (name, voted or not, and the value once revealed) is owned and published only by that

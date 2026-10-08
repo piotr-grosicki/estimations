@@ -18,6 +18,9 @@ const DECKS = {
   tshirt: { label: 'T-shirt sizes', cards: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '?', '☕'] },
 };
 const ROOM_RE = /^\/rooms\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const MAX_ROOM_NAME = 60;
+const MAX_SAVED_ROOMS = 50;
 const OFFLINE_DROP_MS = 60_000;
 const MODERATOR_GRACE_MS = 30_000;
 const STATE_WAIT_MS = 2_500;
@@ -33,6 +36,33 @@ const session = {
   set(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
 };
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) => (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)));
+
+// Rooms this browser has been in, newest first, so the landing page can list them. Only ids, names and
+// when we were last there; nothing about the game.
+const savedRooms = {
+  list() {
+    try {
+      const a = JSON.parse(store.get('est:rooms'));
+      return Array.isArray(a) ? a.filter((r) => r && ID_RE.test(r.id)).map((r) => ({ id: r.id, name: typeof r.name === 'string' ? r.name : '', visitedAt: Number(r.visitedAt) || 0 })) : [];
+    } catch { return []; }
+  },
+  write(list) { store.set('est:rooms', JSON.stringify(list.slice(0, MAX_SAVED_ROOMS))); },
+  get(id) { return this.list().find((r) => r.id === id) || null; },
+  visit(id, fields = {}) {
+    const list = this.list();
+    const prev = list.find((r) => r.id === id);
+    this.write([{ id, name: '', ...prev, ...fields, visitedAt: Date.now() }, ...list.filter((r) => r.id !== id)]);
+  },
+  update(id, fields) {
+    const list = this.list();
+    const r = list.find((x) => x.id === id);
+    if (r) { Object.assign(r, fields); this.write(list); }
+  },
+  remove(id) {
+    this.write(this.list().filter((r) => r.id !== id));
+    store.del(`est:vote:${id}`);
+  },
+};
 
 /* ---------- theme ---------- */
 
@@ -64,12 +94,60 @@ function toast(text) {
 
 const match = ROOM_RE.exec(location.pathname.toLowerCase());
 if (location.pathname === '/') {
-  $('landing').hidden = false;
-  $('create-room').addEventListener('click', () => { location.href = `/rooms/${uuid()}`; });
+  startLanding();
 } else if (match) {
   startRoom(match[1]);
 } else {
   location.replace('/');
+}
+
+/* ---------- landing ---------- */
+
+function startLanding() {
+  $('landing').hidden = false;
+  $('create-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = uuid();
+    // the name rides along in saved rooms; the room picks it up when it starts empty
+    savedRooms.visit(id, { name: $('new-room-name').value.trim().slice(0, MAX_ROOM_NAME) });
+    location.href = `/rooms/${id}`;
+  });
+
+  const ago = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  function when(ts) {
+    const s = (ts - Date.now()) / 1000;
+    for (const [unit, size] of [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]]) {
+      if (Math.abs(s) >= size) return ago.format(Math.round(s / size), unit);
+    }
+    return 'just now';
+  }
+
+  function renderSaved() {
+    const list = savedRooms.list();
+    $('saved').hidden = list.length === 0;
+    $('saved-list').replaceChildren(...list.map((r) => {
+      const li = document.createElement('li');
+      li.className = 'saved-room';
+      li.innerHTML = '<a><b></b><code></code></a><span class="when"></span><button class="btn ghost small icon" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+      const a = li.querySelector('a');
+      a.href = `/rooms/${r.id}`;
+      a.querySelector('b').textContent = r.name || 'Unnamed room';
+      a.querySelector('b').classList.toggle('placeholder', !r.name);
+      a.querySelector('code').textContent = r.id;
+      li.querySelector('.when').textContent = r.visitedAt ? when(r.visitedAt) : '';
+      const forget = li.querySelector('button');
+      forget.title = forget.ariaLabel = `Forget ${r.name || 'this room'}`;
+      forget.addEventListener('click', () => {
+        savedRooms.remove(r.id);
+        renderSaved();
+        toast('Room forgotten');
+      });
+      return li;
+    }));
+  }
+  renderSaved();
+  // another tab may have visited or forgotten a room
+  addEventListener('storage', (e) => { if (e.key === 'est:rooms') renderSaved(); });
 }
 
 /* ---------- room ---------- */
@@ -85,6 +163,7 @@ function startRoom(roomId) {
   const joinedAt = Date.now();
   const voteKey = `est:vote:${roomId}`;
   const roomKey = `est:room:${roomId}`;
+  savedRooms.visit(roomId);
 
   let ws = null;
   let connId = null;
@@ -170,7 +249,8 @@ function startRoom(roomId) {
   function cleanRoom(r) {
     if (!r || typeof r !== 'object') return null;
     if (num(r.v) == null || num(r.ts) == null || !str(r.by, 64) || !str(r.roundId, 64) || !str(r.moderator, 64)) return null;
-    return { v: r.v, ts: r.ts, by: r.by, roundId: r.roundId, revealed: r.revealed === true, deck: DECKS[r.deck] ? r.deck : 'fib', moderator: r.moderator };
+    const roomName = typeof r.name === 'string' ? r.name.trim().slice(0, MAX_ROOM_NAME) : '';
+    return { v: r.v, ts: r.ts, by: r.by, roundId: r.roundId, revealed: r.revealed === true, deck: DECKS[r.deck] ? r.deck : 'fib', moderator: r.moderator, name: roomName };
   }
 
   function newer(a, b) {
@@ -198,6 +278,7 @@ function startRoom(roomId) {
     const prev = room;
     room = r;
     session.set(roomKey, room);
+    if (savedRooms.get(roomId)?.name !== r.name) savedRooms.update(roomId, { name: r.name });
     const newRound = !prev || prev.roundId !== r.roundId;
     if (newRound) {
       if (loadVote() == null) store.del(voteKey);
@@ -217,7 +298,8 @@ function startRoom(roomId) {
   }
 
   function initRoom() {
-    applyRoom({ v: 1, ts: Date.now(), by: clientId, roundId: uuid(), revealed: false, deck: 'fib', moderator: clientId });
+    const roomName = savedRooms.get(roomId)?.name || '';
+    applyRoom({ v: 1, ts: Date.now(), by: clientId, roundId: uuid(), revealed: false, deck: 'fib', moderator: clientId, name: roomName });
   }
 
   /* --- connection --- */
@@ -407,6 +489,21 @@ function startRoom(roomId) {
     render();
   });
 
+  /* --- room name dialog --- */
+
+  const roomDialog = $('room-dialog');
+  $('rename').addEventListener('click', () => {
+    if (!room) return;
+    $('room-input').value = room.name;
+    roomDialog.showModal();
+    $('room-input').select();
+  });
+  $('room-cancel').addEventListener('click', () => roomDialog.close());
+  $('room-form').addEventListener('submit', () => {
+    const v = $('room-input').value.trim().slice(0, MAX_ROOM_NAME);
+    if (room && room.moderator === clientId && v !== room.name) changeRoom({ name: v });
+  });
+
   /* --- rendering --- */
 
   const seatEls = new Map();
@@ -432,6 +529,14 @@ function startRoom(roomId) {
     const seats = seatList();
     const voters = seats.filter((s) => s.voted);
     const modSeat = seats.find((s) => s.clientId === room.moderator);
+
+    // room name: everyone sees it, the moderator can change it
+    $('room-title').hidden = !room.name && !isMod;
+    $('room-name').textContent = room.name || 'Unnamed room';
+    $('room-name').classList.toggle('placeholder', !room.name);
+    $('rename').hidden = !isMod;
+    $('rename').title = $('rename').ariaLabel = room.name ? 'Rename room' : 'Name this room';
+    document.title = room.name ? `${room.name} - Estimations` : 'Estimations room';
 
     // controls
     $('reveal').hidden = !isMod || room.revealed;
@@ -522,17 +627,21 @@ function startRoom(roomId) {
     if (room.deck === 'fib' && !consensus) {
       const nums = values.map(Number).filter((n) => Number.isFinite(n));
       if (nums.length) {
+        // there is no 8.5 card: show the closest one there is, ties going up
         const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
-        stats.push(['Average', Number.isInteger(avg) ? String(avg) : avg.toFixed(1)]);
+        const card = deck.cards.map(Number).filter(Number.isFinite)
+          .reduce((best, c) => (Math.abs(c - avg) < Math.abs(best - avg) || (Math.abs(c - avg) === Math.abs(best - avg) && c > best) ? c : best));
+        stats.push(['Average', String(card), `Exact average ${Number.isInteger(avg) ? avg : avg.toFixed(2)}`]);
       }
     }
     const top = ordered.filter((c) => counts.get(c) === max);
     stats.push([consensus ? 'Consensus' : top.length > 1 ? 'Most picked (tie)' : 'Most picked', top.join(' / ')]);
 
     const frag = document.createDocumentFragment();
-    for (const [label, value] of stats) {
+    for (const [label, value, hint] of stats) {
       const s = document.createElement('div');
       s.className = 'stat' + (consensus ? ' consensus' : '');
+      if (hint) s.title = hint;
       const b = document.createElement('b'); b.textContent = value;
       const sp = document.createElement('span'); sp.textContent = label;
       s.append(b, sp);

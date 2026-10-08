@@ -38,7 +38,14 @@
       </div>
       <h1>Planning poker,<br>without the paperwork.</h1>
       <p class="lede">Make a room, share the link, everyone picks a card. The moderator reveals them all at once.</p>
-      <button id="create-room" class="btn primary large" type="button">Create quick room</button>
+      <form id="create-form" class="create">
+        <input id="new-room-name" maxlength="60" autocomplete="off" placeholder="Room name (optional)" aria-label="Room name (optional)">
+        <button class="btn primary large" type="submit">Create room</button>
+      </form>
+      <section id="saved" class="saved" hidden>
+        <h2 class="eyebrow">Saved rooms</h2>
+        <ul id="saved-list"></ul>
+      </section>
       <ul class="facts">
         <li><b>No sign-up.</b> Just a name, remembered in this browser.</li>
         <li><b>Rooms never expire.</b> Open the same link next week and carry on.</li>
@@ -49,6 +56,13 @@
 
   <main id="room" class="room" hidden>
     <div id="conn-banner" class="conn-banner" hidden>Reconnecting...</div>
+
+    <div id="room-title" class="room-title" hidden>
+      <h1 id="room-name"></h1>
+      <button id="rename" class="btn ghost small icon" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
+      </button>
+    </div>
 
     <section class="table-wrap">
       <div class="table-head">
@@ -93,6 +107,18 @@
       <input id="name-input" name="name" maxlength="32" autocomplete="nickname" placeholder="Your name" required>
       <div class="dialog-actions">
         <button class="btn primary" type="submit">Join room</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="room-dialog" class="dialog">
+    <form method="dialog" id="room-form">
+      <h3>Name this room</h3>
+      <p class="muted">Everyone in the room sees it, and it shows in their saved rooms.</p>
+      <input id="room-input" name="room" maxlength="60" autocomplete="off" placeholder="Sprint refinement">
+      <div class="dialog-actions">
+        <button id="room-cancel" class="btn ghost" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
       </div>
     </form>
   </dialog>
