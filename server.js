@@ -14,7 +14,7 @@ const MAX_PER_ROOM = 60;
 const MAX_MESSAGE = 16 * 1024;
 const MAX_PER_10S = 200; // a client that floods is cut off; normal play sends a handful
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg' };
 const files = new Map();
 for (const name of fs.readdirSync(PUBLIC)) {
   files.set('/' + name, { body: fs.readFileSync(path.join(PUBLIC, name)), type: TYPES[path.extname(name)] || 'application/octet-stream' });

@@ -153,7 +153,6 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .btn.small { min-height: 36px; padding: 0 14px; font-size: 14px; }
 .btn.icon { padding: 0; width: 36px; }
 .btn.large { min-height: 56px; padding: 0 30px; font-size: 18px; }
-.btn.armed { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
 
 #theme-toggle svg { display: none; }
 :root:not([data-theme]) #theme-toggle .ico-system,
@@ -210,6 +209,16 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .deck-select { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); font-weight: 600; }
 .deck-select select { min-height: 42px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); padding: 0 14px; font-weight: 600; color: var(--ink); }
+
+.claim { background: var(--accent-soft); border-radius: 14px; padding: 10px 14px 12px; margin-bottom: 14px; }
+.claim.mine { background: var(--warn-soft); }
+.claim-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.claim-row p { margin: 0; font-size: 14px; font-weight: 600; }
+.claim.mine .claim-row p { color: var(--warn-ink); }
+.claim-bar { height: 6px; border-radius: 99px; background: var(--surface); margin-top: 10px; overflow: hidden; }
+.claim-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--accent); animation: claim 30s linear forwards; }
+.claim.mine .claim-bar i { background: var(--warn-ink); }
+@keyframes claim { to { width: 100%; } }
 
 .table {
   background: var(--felt);

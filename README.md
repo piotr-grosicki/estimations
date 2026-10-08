@@ -16,11 +16,14 @@ moderator reveals them all at once. No accounts, no database, nothing stored on 
 - **Hidden votes.** Before the reveal, a browser tells the others only *that* you voted, never the value. It is not
   hidden by CSS: the value does not leave your browser until the moderator reveals.
 - **Moderator.** The first person in an empty room moderates: reveal the cards, start a new round, switch the deck.
-  Anyone can take the role over (for when the moderator walked away with the tab open), and if the moderator leaves
-  for 30 seconds it passes on its own to whoever has been in the room the longest.
+  Anyone can ask to take the role over (for when the moderator walked away with the tab open): everyone sees a
+  30-second bar, the moderator hears a chime and can keep the role, and if nobody answers it passes to the asker. If
+  the moderator is already gone it passes at once, and if they leave for 30 seconds it passes on its own to whoever
+  has been in the room the longest.
 - **Two decks.** Fibonacci (`1 2 3 5 8 13 21 ? ☕`, the default) and T-shirt sizes (`XS S M L XL XXL ? ☕`).
 - **Results.** Average (Fibonacci, snapped to the closest real card, ties going up: 5 and 13 average to 8, not 9),
-  the most picked card and a breakdown; confetti when everyone agrees.
+  the most picked card and a breakdown; confetti when everyone agrees, and a "nice": put your own clip at
+  `public/nice.mp3` (it is git-ignored, so it ends up in your image only), or the browser says it.
 - **Survives drops.** Reload the page or lose the connection and the people still in the room send you the current
   game. Your name and your vote for the current round are kept in your browser.
 - **Light and dark.** Follows the system by default; the toggle (system / light / dark) is remembered.

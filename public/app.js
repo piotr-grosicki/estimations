@@ -10,6 +10,9 @@
 //   only they publish it. Its seq is a timestamp, so a reloaded page still outranks its older copies.
 // * Before reveal a record says only "voted". On reveal every browser publishes its own value, so a vote
 //   never leaves its browser until the moderator reveals.
+// * Taking over the moderator is a claim in the room, not a switch: the moderator has 30 seconds to keep the
+//   role, after which the claimer's own browser makes the change. Each browser times the claim from when it
+//   first saw it, so clocks that disagree do not matter.
 // * A newcomer says hello; everyone answers with the room and the records they know, so a dropped
 //   connection or a reloaded page catches up from whoever is still there.
 
@@ -23,6 +26,7 @@ const MAX_ROOM_NAME = 60;
 const MAX_SAVED_ROOMS = 50;
 const OFFLINE_DROP_MS = 60_000;
 const MODERATOR_GRACE_MS = 30_000;
+const CLAIM_MS = 30_000;
 const STATE_WAIT_MS = 2_500;
 
 const $ = (id) => document.getElementById(id);
@@ -250,7 +254,8 @@ function startRoom(roomId) {
     if (!r || typeof r !== 'object') return null;
     if (num(r.v) == null || num(r.ts) == null || !str(r.by, 64) || !str(r.roundId, 64) || !str(r.moderator, 64)) return null;
     const roomName = typeof r.name === 'string' ? r.name.trim().slice(0, MAX_ROOM_NAME) : '';
-    return { v: r.v, ts: r.ts, by: r.by, roundId: r.roundId, revealed: r.revealed === true, deck: DECKS[r.deck] ? r.deck : 'fib', moderator: r.moderator, name: roomName };
+    const claim = r.claim && str(r.claim.by, 64) && str(r.claim.id, 64) ? { by: r.claim.by, id: r.claim.id } : null;
+    return { v: r.v, ts: r.ts, by: r.by, roundId: r.roundId, revealed: r.revealed === true, deck: DECKS[r.deck] ? r.deck : 'fib', moderator: r.moderator, name: roomName, claim };
   }
 
   function newer(a, b) {
@@ -343,7 +348,7 @@ function startRoom(roomId) {
           // Alone in the room: whoever opens an empty room runs it. Only on a fresh page load, so that
           // after a server restart the reconnecting browsers do not all grab the role at once.
           if (!room) initRoom();
-          else if (firstConnect && room.moderator !== clientId) changeRoom({ moderator: clientId });
+          else if (firstConnect && room.moderator !== clientId) changeRoom({ moderator: clientId, claim: null });
         } else if (!room) {
           stateTimer = setTimeout(() => { if (!room) initRoom(); }, STATE_WAIT_MS);
         }
@@ -410,13 +415,21 @@ function startRoom(roomId) {
       if (now - moderatorMissingSince > MODERATOR_GRACE_MS) {
         const candidates = [{ clientId, joinedAt }, ...[...people.values()].filter((r) => online(r.clientId))]
           .sort((a, b) => a.joinedAt - b.joinedAt || (a.clientId < b.clientId ? -1 : 1));
-        if (candidates[0].clientId === clientId) changeRoom({ moderator: clientId });
+        if (candidates[0].clientId === clientId) changeRoom({ moderator: clientId, claim: null });
         moderatorMissingSince = null;
       }
     } else {
       moderatorMissingSince = null;
     }
+    // our own claim went unanswered: the role is ours
+    const claim = activeClaim();
+    if (claim && claim.by === clientId && claimElapsed(claim) >= CLAIM_MS) {
+      changeRoom({ moderator: clientId, claim: null });
+      toast('You are the moderator now');
+      changed = true;
+    }
     if (changed) render();
+    else tickClaim();
   }, 1000);
 
   document.addEventListener('visibilitychange', () => {
@@ -442,23 +455,100 @@ function startRoom(roomId) {
     changeRoom({ deck: e.target.value, revealed: false, roundId: uuid() });
   });
 
-  let armTimer = null;
+  /* --- taking over the moderator --- */
+
+  const claimSeen = new Map(); // claim id -> when this browser first saw it
+  function activeClaim() {
+    const c = room && room.claim;
+    if (!c || c.by === room.moderator || !online(c.by)) return null;
+    if (!claimSeen.has(c.id)) claimSeen.set(c.id, Date.now());
+    return c;
+  }
+  function claimElapsed(c) { return Date.now() - (claimSeen.get(c.id) ?? Date.now()); }
+
   $('take-over').addEventListener('click', () => {
-    const btn = $('take-over');
-    if (!btn.classList.contains('armed')) {
-      btn.classList.add('armed');
-      btn.textContent = 'Tap again to confirm';
-      armTimer = setTimeout(disarm, 4000);
+    if (!room) return;
+    // nobody there to object: take it now
+    if (!online(room.moderator)) {
+      changeRoom({ moderator: clientId, claim: null });
+      toast('You are the moderator now');
       return;
     }
-    disarm();
-    changeRoom({ moderator: clientId });
-    toast('You are the moderator now');
+    const id = uuid();
+    claimSeen.set(id, Date.now());
+    changeRoom({ claim: { by: clientId, id } });
   });
-  function disarm() {
-    clearTimeout(armTimer);
-    $('take-over').classList.remove('armed');
-    $('take-over').textContent = 'Take over moderator';
+  $('claim-action').addEventListener('click', () => {
+    const c = activeClaim();
+    if (!c) return;
+    if (room.moderator === clientId) { changeRoom({ claim: null }); toast('You are still the moderator'); }
+    else if (c.by === clientId) changeRoom({ claim: null });
+  });
+
+  // A short two-note chime, made on the spot. Browsers only allow sound after the page has been clicked, so the
+  // audio context is unlocked on the first click; without one the chime stays silent and the title still flashes.
+  let audio = null;
+  addEventListener('pointerdown', () => {
+    try { audio ??= new AudioContext(); if (audio.state === 'suspended') audio.resume(); } catch { /* no audio */ }
+  }, { capture: true });
+  function ding() {
+    if (!audio || audio.state !== 'running') return;
+    const t = audio.currentTime;
+    for (const [freq, at] of [[880, 0], [1318.5, 0.16]]) {
+      const osc = audio.createOscillator(), gain = audio.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t + at);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.6);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(t + at);
+      osc.stop(t + at + 0.65);
+    }
+  }
+
+  let shownClaim = null;
+  function renderClaim(seats) {
+    const c = activeClaim();
+    const box = $('claim');
+    if (!c) {
+      box.hidden = true;
+      shownClaim = null;
+      return;
+    }
+    const nameOf = (cid) => seats.find((s) => s.clientId === cid)?.name || 'Someone';
+    const isMod = room.moderator === clientId;
+    if (shownClaim !== c.id) {
+      shownClaim = c.id;
+      // restart the bar from wherever this claim already is
+      const fill = $('claim-fill');
+      fill.style.animation = 'none';
+      void fill.offsetWidth;
+      fill.style.animation = '';
+      fill.style.animationDelay = `-${claimElapsed(c)}ms`;
+      if (isMod) ding();
+    }
+    box.hidden = false;
+    box.classList.toggle('mine', isMod);
+    $('claim-action').hidden = !isMod && c.by !== clientId;
+    $('claim-action').textContent = isMod ? 'Keep moderator' : 'Cancel';
+    $('claim-action').classList.toggle('primary', isMod);
+    box.dataset.text = isMod ? `${nameOf(c.by)} wants to take over as moderator`
+      : c.by === clientId ? `Asking ${nameOf(room.moderator)} to hand over moderator`
+      : `${nameOf(c.by)} is taking over moderator from ${nameOf(room.moderator)}`;
+    tickClaim();
+  }
+  function tickClaim() {
+    const c = activeClaim();
+    const box = $('claim');
+    if (!c || box.hidden) return;
+    const left = Math.max(0, Math.ceil((CLAIM_MS - claimElapsed(c)) / 1000));
+    const text = `${box.dataset.text}, ${left} s`;
+    if ($('claim-text').textContent !== text) $('claim-text').textContent = text;
+    // the animation runs the bar; this is the fallback when reduced motion turns it off
+    $('claim-fill').style.width = `${Math.min(100, (claimElapsed(c) / CLAIM_MS) * 100)}%`;
+    const title = room.moderator === clientId ? `Moderator wanted (${left} s)` : null;
+    document.title = title || (room.name ? `${room.name} - Estimations` : 'Estimations room');
   }
 
   $('copy-link').addEventListener('click', async () => {
@@ -545,7 +635,7 @@ function startRoom(roomId) {
     $('reset').classList.toggle('primary', room.revealed);
     $('deck-select-wrap').hidden = !isMod;
     $('deck-select').value = room.deck;
-    $('take-over').hidden = isMod;
+    $('take-over').hidden = isMod || (room.claim && room.claim.by === clientId && !!activeClaim());
     $('round-label').textContent = `${deck.label}${isMod ? ' - you are the moderator' : modSeat ? ` - moderator: ${modSeat.name}` : ''}`;
 
     // seats
@@ -606,12 +696,14 @@ function startRoom(roomId) {
     }
     if (!isMod && !room.revealed && voters.length) status.textContent += modSeat ? `, waiting for ${modSeat.name} to reveal` : '';
 
+    renderClaim(seats);
     renderResults(deck, values, consensus);
     renderHand(deck);
 
     if (consensus && celebrated !== room.roundId) {
       celebrated = room.roundId;
       confetti();
+      nice();
     }
   }
 
@@ -684,6 +776,22 @@ function startRoom(roomId) {
       b.setAttribute('aria-checked', String(b.dataset.value === mine));
       b.disabled = room.revealed;
     }
+  }
+
+  /* --- "nice" for a unanimous reveal --- */
+
+  // Plays nice.mp3 when the instance has one (it is not in the repository: bring your own clip), else the
+  // browser says it. Browsers allow sound once the page has been clicked, which picking a card already did.
+  function nice() {
+    const say = () => {
+      if (!('speechSynthesis' in window)) return;
+      const u = new SpeechSynthesisUtterance('Nice.');
+      u.lang = 'en-GB';
+      u.rate = 0.85;
+      u.pitch = 0.8;
+      speechSynthesis.speak(u);
+    };
+    try { new Audio('/nice.mp3').play().catch(say); } catch { say(); }
   }
 
   /* --- confetti for a unanimous reveal --- */
