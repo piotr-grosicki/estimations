@@ -158,6 +158,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 :root:not([data-theme]) #theme-toggle .ico-system,
 :root[data-theme="light"] #theme-toggle .ico-light,
 :root[data-theme="dark"] #theme-toggle .ico-dark { display: block; }
+#sound-toggle[aria-pressed="true"] .ico-sound-off,
+#sound-toggle[aria-pressed="false"] .ico-sound-on { display: none; }
 
 /* landing */
 .landing { flex: 1; display: grid; place-items: center; padding: 24px 16px 48px; }

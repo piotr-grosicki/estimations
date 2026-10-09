@@ -23,9 +23,11 @@ moderator reveals them all at once. No accounts, no database, nothing stored on 
 - **Two decks.** Fibonacci (`1 2 3 5 8 13 21 ? ☕`, the default) and T-shirt sizes (`XS S M L XL XXL ? ☕`).
 - **Results.** Average (Fibonacci, snapped to the closest real card, ties going up: 5 and 13 average to 8, not 9),
   the most picked card and a breakdown; confetti when everyone agrees, and a "nice": put your own clip at
-  `public/nice.mp3` (it is git-ignored, so it ends up in your image only), or the browser says it.
+  `public/nice.mp3` (it is git-ignored, so it ends up in your image only); without one there is no sound.
 - **Survives drops.** Reload the page or lose the connection and the people still in the room send you the current
   game. Your name and your vote for the current round are kept in your browser.
+- **Sounds can be muted.** The speaker in the top bar turns the chime and the "nice" off for this browser; they are
+  on by default and the choice is remembered.
 - **Light and dark.** Follows the system by default; the toggle (system / light / dark) is remembered.
 - **Works on phones.**
 

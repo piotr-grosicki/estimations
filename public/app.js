@@ -85,6 +85,22 @@ $('theme-toggle').addEventListener('click', () => {
 });
 applyTheme(currentTheme());
 
+/* ---------- sound ---------- */
+
+// On unless this browser turned it off; only "off" is stored.
+const soundOn = () => store.get('est:sound') !== 'off';
+function applySound(on) {
+  if (on) store.del('est:sound'); else store.set('est:sound', 'off');
+  const btn = $('sound-toggle');
+  btn.setAttribute('aria-pressed', String(on));
+  btn.title = btn.ariaLabel = `Sounds: ${on ? 'on' : 'off'}`;
+}
+$('sound-toggle').addEventListener('click', () => {
+  applySound(!soundOn());
+  toast(`Sounds: ${soundOn() ? 'on' : 'off'}`);
+});
+applySound(soundOn());
+
 let toastTimer;
 function toast(text) {
   const el = $('toast');
@@ -492,7 +508,7 @@ function startRoom(roomId) {
     try { audio ??= new AudioContext(); if (audio.state === 'suspended') audio.resume(); } catch { /* no audio */ }
   }, { capture: true });
   function ding() {
-    if (!audio || audio.state !== 'running') return;
+    if (!soundOn() || !audio || audio.state !== 'running') return;
     const t = audio.currentTime;
     for (const [freq, at] of [[880, 0], [1318.5, 0.16]]) {
       const osc = audio.createOscillator(), gain = audio.createGain();
@@ -780,18 +796,19 @@ function startRoom(roomId) {
 
   /* --- "nice" for a unanimous reveal --- */
 
-  // Plays nice.mp3 when the instance has one (it is not in the repository: bring your own clip), else the
-  // browser says it. Browsers allow sound once the page has been clicked, which picking a card already did.
-  function nice() {
-    const say = () => {
-      if (!('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance('Nice.');
-      u.lang = 'en-GB';
-      u.rate = 0.85;
-      u.pitch = 0.8;
-      speechSynthesis.speak(u);
-    };
-    try { new Audio('/nice.mp3').play().catch(say); } catch { say(); }
+  // Plays nice.mp3 when the instance has one (it is not in the repository: bring your own clip), else stays silent.
+  // It goes through the audio context the first click unlocked, so a reveal someone else pressed can still play it.
+  const niceFile = fetch('/nice.mp3').then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+  let niceClip = null;
+  async function nice() {
+    if (!soundOn() || !audio || audio.state !== 'running') return;
+    niceClip ??= niceFile.then((data) => data && audio.decodeAudioData(data)).catch(() => null);
+    const clip = await niceClip;
+    if (!clip) return;
+    const src = audio.createBufferSource();
+    src.buffer = clip;
+    src.connect(audio.destination);
+    src.start();
   }
 
   /* --- confetti for a unanimous reveal --- */
